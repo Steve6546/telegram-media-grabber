@@ -1,0 +1,27 @@
+# Keep secrets, local state and build noise out of the image context.
+.git
+.gitignore
+.gitattributes
+.env
+.env.*
+!.env.example
+config.yaml
+data/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+*.part
+media_bot/**/*.mp4
+media_bot/**/*.jpg
+tests/
+docs/
+docker-compose.yml
+.github/
