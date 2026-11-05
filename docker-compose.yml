@@ -1,0 +1,37 @@
+# Two services, one shared /data volume.
+#
+#   grabber      — the Telegram bot
+#   bot-api      — Local Bot API Server, which lifts the send ceiling from 50 MB to 2 GB
+#
+# The bot-api service is optional: with SEND_MODE=auto the bot probes it at startup and
+# falls back to the hosted API (or splits files) when it is not reachable.
+
+services:
+  bot-api:
+    image: aiogram/telegram-bot-api:latest
+    restart: unless-stopped
+    environment:
+      API_ID: "${TG_API_ID:?set TG_API_ID in .env (my.telegram.org)}"
+      API_HASH: "${TG_API_HASH:?set TG_API_HASH in .env}"
+    # --local serves files straight from the shared volume instead of uploading bytes.
+    command: ["--api-id", "${TG_API_ID}", "--api-hash", "${TG_API_HASH}", "--local"]
+    volumes:
+      - ./data:/data
+    ports:
+      - "8081:8081"
+
+  grabber:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      SEND_MODE: "${SEND_MODE:-auto}"
+      LOCAL_API_URL: "http://bot-api:8081"
+      # Both services see the same path, so no path translation is needed.
+      LOCAL_FILES_ROOT: /data
+      BOT_FILES_ROOT: /data
+    volumes:
+      - ./data:/data
+    depends_on:
+      - bot-api
