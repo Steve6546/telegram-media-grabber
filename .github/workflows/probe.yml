@@ -1,0 +1,11 @@
+name: probe
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  tiny:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hello
