@@ -62,23 +62,44 @@ class GrabberService:
         self.ffmpeg = ffmpeg
         self.vault = vault
         self.bot_sender = bot_sender
-        self.local_sender = (
-            LocalApiSender(bot_sender.bot)
-            if bot_sender is not None and settings.send_mode in {"auto", "local_api"}
-            else None
-        )
+        # Never assumed: a Local Bot API Server only becomes a route once it answers getMe.
+        self.local_bot = None
+        self.local_sender = None
         self.mtproto = mtproto
         #: a Local Bot API Server is only a route once it actually answers getMe
         self.local_api_ready = False
         self._bundles: dict[str, Bundle] = {}
 
     async def probe_senders(self) -> dict[str, object]:
-        """Verify the optional send paths instead of assuming configuration means health."""
+        """Verify the optional send paths instead of assuming configuration means health.
+
+        Called at startup. On a machine with no local server this costs one refused
+        connection and leaves the bot on the hosted API — which is the correct outcome,
+        and the reason ``auto`` must not rewire the main session up front.
+        """
+        from .senders import build_local_bot
+
         result: dict[str, object] = {"local_api": None, "mtproto": None}
-        if self.local_sender is not None:
-            probe = await self.local_sender.probe()
-            self.local_api_ready = bool(probe.get("available"))
-            result["local_api"] = probe
+        if self.bot_sender is not None and self.settings.send_mode in {"auto", "local_api"}:
+            self.local_bot = build_local_bot(self.settings)
+            if self.local_bot is None:
+                result["local_api"] = {"available": False, "error": "no local_api_url configured"}
+            else:
+                candidate = LocalApiSender(self.local_bot)
+                probe = await candidate.probe()
+                if probe.get("available"):
+                    self.local_sender = candidate
+                    self.local_api_ready = True
+                    result["local_api"] = probe
+                else:
+                    # The probe built a real aiohttp session against a server that is not
+                    # there; leaving it open leaks a connection on every start.
+                    try:
+                        await self.local_bot.session.close()
+                    except Exception as exc:  # pragma: no cover - cleanup only
+                        log.debug("local bot session close failed: %s", exc)
+                    self.local_bot = None
+                    result["local_api"] = {"available": False, "error": probe.get("error")}
         if self.mtproto is not None and self.mtproto.client is None:
             result["mtproto"] = {"available": await self.mtproto.connect()}
         return result

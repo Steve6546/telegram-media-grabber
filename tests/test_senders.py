@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from aiogram.types import URLInputFile
 
+from media_bot.config import Settings
 from media_bot.errors import FileTooLargeError, SenderError
 from media_bot.extractors.base import MediaKind
 from media_bot.senders import (
@@ -21,6 +22,8 @@ from media_bot.senders import (
     media_type_for,
 )
 from media_bot.senders import BotApiSender
+
+from .conftest import FakeBotApi
 
 
 class Sent:
@@ -171,6 +174,49 @@ def test_media_type_mapping() -> None:
     assert media_type_for(Path("a.png"), MediaKind.IMAGE) == "photo"
     assert media_type_for(Path("a.bin"), MediaKind.FILE) == "document"
     assert media_type_for(Path("a.opus"), MediaKind.AUDIO) == "audio"
+
+
+def test_auto_mode_never_wires_the_local_server_up_front() -> None:
+    """Regression: SEND_MODE=auto used to point the main session at 127.0.0.1:8081,
+
+    which made the default deployment fail with a refused connection on any host that
+    has no Local Bot API Server running. auto must start on the hosted API and only
+    upgrade after probe_senders() sees a live server.
+    """
+    from media_bot.senders import build_session
+
+    auto = Settings(send_mode="auto", local_api_url="http://127.0.0.1:8081")
+    assert build_session(auto) is None
+    assert build_session(Settings(send_mode="bot_api")) is None
+    assert build_session(Settings(send_mode="mtproto")) is None
+    explicit = Settings(send_mode="local_api", local_api_url="http://127.0.0.1:8081")
+    assert build_session(explicit) is not None
+
+
+async def test_local_path_requires_a_live_server(settings, db, storage, vault) -> None:
+    """A configured URL alone must not mark the 2 GB route as available."""
+    from media_bot.extractors.registry import Registry
+    from media_bot.processing.ffmpeg import FFmpeg
+    from media_bot.queue import DownloadQueue
+    from media_bot.service import GrabberService
+
+    from .conftest import ScriptedEngine, make_bundle
+
+    settings.send_mode = "auto"
+    # a syntactically valid token is required to construct the client; nothing here talks
+    # to Telegram, the probe targets a closed port on purpose.
+    settings.bot_token = "123456:AAExampleExampleExampleExampleExampl0"
+    settings.local_api_url = "http://127.0.0.1:1"  # nothing listens here
+    engine = ScriptedEngine(settings, bundle=make_bundle())
+    service = GrabberService(
+        settings=settings, db=db, storage=storage, registry=Registry(settings, [engine]),
+        queue=DownloadQueue(), ffmpeg=FFmpeg(), vault=vault, bot_sender=FakeBotApi(),
+    )
+    assert service.local_sender is None
+    report = await service.probe_senders()
+    assert service.local_api_ready is False
+    assert service.local_sender is None
+    assert report["local_api"]["available"] is False
 
 
 def test_url_input_file_is_available_for_server_side_fetch() -> None:

@@ -55,11 +55,16 @@ def build_bot(settings) -> Bot:
     return Bot(token=settings.bot_token, session=session)
 
 
-def build_session(settings):
-    """Aiohttp session pointed at a Local Bot API Server, or None for hosted API."""
-    if settings.send_mode not in {"auto", "local_api"}:
-        return None
+def build_session(settings, *, force_local: bool = False):
+    """Aiohttp session pointed at a Local Bot API Server, or None for the hosted API.
+
+    Only an explicit choice wires the local server in. ``auto`` must keep working on a
+    plain host, so it starts on the hosted API and :meth:`GrabberService.probe_senders`
+    upgrades it later only if the local server actually answers.
+    """
     if not settings.local_api_url:
+        return None
+    if not force_local and settings.send_mode != "local_api":
         return None
     from aiogram.client.session.aiohttp import AiohttpSession
 
@@ -71,6 +76,16 @@ def build_session(settings):
     server = TelegramAPIServer.from_base(settings.local_api_url, **kwargs)
     log.info("Telegram API base -> %s", server.base)
     return AiohttpSession(api=server)
+
+
+def build_local_bot(settings):
+    """A second Bot bound to the Local Bot API Server, for the 2 GB send path."""
+    if not settings.local_api_url:
+        return None
+    session = build_session(settings, force_local=True)
+    if session is None:
+        return None
+    return Bot(token=settings.bot_token, session=session)
 
 
 def media_type_for(path: Path, kind: MediaKind) -> str:
@@ -209,6 +224,7 @@ def describe_limits() -> list[tuple[str, int, str]]:
 
 __all__ = [
     "BotApiSender", "LocalApiSender", "SendOutcome", "build_bot", "build_session",
+    "build_local_bot",
     "media_type_for", "describe_limits", "BOT_API_SEND_LIMIT", "LOCAL_API_SEND_LIMIT",
     "MTPROTO_SEND_LIMIT", "CAPTION_LIMIT", "human_size", "human_duration",
 ]
