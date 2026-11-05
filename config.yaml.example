@@ -1,0 +1,31 @@
+# Optional YAML config. Anything set here is overridden by the environment (see .env.example).
+# Copy to config.yaml only if you prefer file-based configuration over environment vars.
+
+data_dir: data
+send_mode: auto            # auto | bot_api | local_api | mtproto
+local_api_url: http://127.0.0.1:8081
+
+max_concurrent_downloads: 3
+per_user_concurrent: 1
+max_file_mb: 2000
+temp_ttl_minutes: 90
+dedupe_ttl_minutes: 60
+max_downloads_per_user_per_hour: 30
+
+progress_interval_seconds: 2.0
+request_timeout_seconds: 45
+read_timeout_seconds: 600
+
+use_aria2: true            # only used when the aria2c binary is found
+ffmpeg_path: ffmpeg
+ffprobe_path: ffprobe
+resume: true
+
+allow_cookie_auth: true
+# cookie_encryption_key belongs in the environment (COOKIE_ENC_KEY), never in this file.
+
+# Restrict who can talk to the bot. An empty list means anyone.
+allowed_user_ids: []
+
+extra:
+  log_level: INFO

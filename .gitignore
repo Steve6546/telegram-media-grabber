@@ -1,0 +1,40 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# --- Secrets and local state: never commit these ---
+.env
+.env.*
+!.env.example
+config.yaml
+data/
+*.enc
+cookies*.txt
+*_session*
+*_session*.session*
+
+# --- Media and scratch ---
+media-downloads/
+downloads/
+*.part
+*.mp4
+*.mkv
+*.webm
+*.mp3
+*.jpg
+*.png
+
+# --- Tooling ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+_probe*
