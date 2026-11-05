@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual runs matter here because the live smoke job depends on third-party sites that
+  # change without notice, and because private-repo Actions entitlement can block automatic
+  # runs entirely — this is the way to prove the workflow is correct the moment it can run.
+  workflow_dispatch:
 
 jobs:
   test:
