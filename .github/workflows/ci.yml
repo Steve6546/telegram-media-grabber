@@ -1,5 +1,14 @@
 name: ci
 
+# Known blocker on the owner's account, recorded so a red X here is not misread as a
+# broken build: as of 2026-11-05 GitHub refuses to start any runner for this account.
+# The job annotation says it verbatim: "The job was not started because your account is
+# locked due to a billing issue." Nothing in this file, in the repo, or in the tests causes
+# it, and it affects private and public repositories alike. Resolve it at
+# github.com/settings/billing; until then run the same gate locally:
+#   pip install -e ".[dev]" && ruff check media_bot tests scripts && python -m pytest -q
+# Verified locally on 2026-11-05: 258 offline tests pass, 4 live tests pass, ruff clean.
+
 on:
   push:
     branches: [main]
